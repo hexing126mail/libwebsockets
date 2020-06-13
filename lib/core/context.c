@@ -82,7 +82,6 @@ lws_sul_peer_limits_cb(lws_sorted_usec_list_t *sul)
 
 #if defined(LWS_WITH_NETWORK)
 
-#if defined(_DEBUG)
 static const char * system_state_names[] = {
 	"undef",
 	"CONTEXT_CREATED",
@@ -99,7 +98,6 @@ static const char * system_state_names[] = {
 	"OPERATIONAL",
 	"POLICY_INVALID"
 };
-#endif
 
 /*
  * Handle provoking protocol init when we pass through the right system state
@@ -587,6 +585,17 @@ lws_create_context(const struct lws_context_creation_info *info)
 			context->fd_limit_per_thread = context->max_fds /
 							context->count_threads;
 
+#if defined(LWS_WITH_SYS_SMD)
+	lws_mutex_init(context->smd.lock_messages);
+	lws_mutex_init(context->smd.lock_peers);
+	if (info->early_smd_cb &&
+	    !lws_smd_register(context, info->early_smd_opaque,
+			      info->early_smd_class_filter,
+			      info->early_smd_cb)) {
+		lwsl_err("%s: early smd register failed\n", __func__);
+	}
+#endif
+
 #if defined(LWS_WITH_NETWORK)
 
 	context->default_retry.retry_ms_table = default_backoff_table;
@@ -827,15 +836,18 @@ lws_create_context(const struct lws_context_creation_info *info)
 	/*
 	 * init the lws_state mgr for the system state
 	 */
-#if defined(_DEBUG)
-	context->mgr_system.state_names = system_state_names;
-#endif
-	context->mgr_system.name = "system";
-	context->mgr_system.state = LWS_SYSTATE_CONTEXT_CREATED;
-	context->mgr_system.parent = context;
 
-	context->protocols_notify.name = "prot_init";
-	context->protocols_notify.notify_cb = lws_state_notify_protocol_init;
+	context->mgr_system.state_names		= system_state_names;
+	context->mgr_system.name		= "system";
+	context->mgr_system.state		= LWS_SYSTATE_CONTEXT_CREATED;
+	context->mgr_system.parent		= context;
+	context->mgr_system.context		= context;
+#if defined(LWS_WITH_SYS_SMD)
+	context->mgr_system.smd_class		= LWSSMDCL_SYSTEM_STATE;
+#endif
+
+	context->protocols_notify.name		= "prot_init";
+	context->protocols_notify.notify_cb	= lws_state_notify_protocol_init;
 
 	lws_state_reg_notifier(&context->mgr_system, &context->protocols_notify);
 
@@ -1087,6 +1099,10 @@ lws_context_destroy3(struct lws_context *context)
 #endif
 	}
 
+#if defined(LWS_WITH_SYS_SMD)
+	_lws_smd_destroy(context);
+#endif
+
 #if defined(LWS_WITH_SYS_ASYNC_DNS)
 	lws_async_dns_deinit(&context->async_dns);
 #endif
@@ -1113,7 +1129,7 @@ lws_context_destroy3(struct lws_context *context)
 #endif
 
 	lws_free(context);
-	lwsl_info("%s: ctx %p freed\n", __func__, context);
+	lwsl_debug("%s: ctx %p freed\n", __func__, context);
 
 	if (pcontext_finalize)
 		*pcontext_finalize = NULL;
@@ -1438,7 +1454,7 @@ struct lws_context *
 lws_system_context_from_system_mgr(lws_state_manager_t *mgr)
 {
 #if defined(LWS_WITH_NETWORK)
-	return lws_container_of(mgr, struct lws_context, mgr_system);
+	return mgr->context;
 #else
 	return NULL;
 #endif

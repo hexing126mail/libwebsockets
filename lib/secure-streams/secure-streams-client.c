@@ -57,6 +57,8 @@ lws_sspc_sul_retry_cb(lws_sorted_usec_list_t *sul)
 
 		return;
 	}
+
+	lwsl_notice("%s: sspc ss wsi %p\n", __func__, h->cwsi);
 }
 
 static int
@@ -172,7 +174,7 @@ callback_sspc_client(struct lws *wsi, enum lws_callback_reasons reason,
 		if (!h)
 			break;
 
-		lwsl_info("%s: WRITEABLE %p: (%s) state %d\n", __func__, wsi,
+		lwsl_notice("%s: WRITEABLE %p: (%s) state %d\n", __func__, wsi,
 				h->ssi.streamtype, h->state);
 
 		n = 0;
@@ -228,7 +230,7 @@ callback_sspc_client(struct lws *wsi, enum lws_callback_reasons reason,
 			 * Do we want to adjust the peer's ability to write
 			 * to us?
 			 */
-
+lwsl_notice("%s: operational write\n", __func__);
 			/*
 			 * Do we need to prioritize sending any metadata
 			 * changes?
@@ -409,7 +411,8 @@ lws_sspc_destroy(lws_sspc_handle_t **ph)
 	if (h->cwsi) {
 		struct lws *wsi = h->cwsi;
 		h->cwsi = NULL;
-		lws_set_timeout(wsi, 1, LWS_TO_KILL_SYNC);
+		if (h->cwsi)
+			lws_set_timeout(wsi, 1, LWS_TO_KILL_SYNC);
 	}
 
 	/* clean out any pending metadata changes that didn't make it */

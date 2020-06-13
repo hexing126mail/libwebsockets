@@ -794,9 +794,15 @@ payload_ff:
 
 			if (*pss) {
 				(*pss)->being_serialized = 1;
-				lwsl_notice("%s: Created SS initial credit %d\n",
-					   __func__, par->txcr_out);
-				(*pss)->info.manual_initial_tx_credit = par->txcr_out;
+#if defined(LWS_WITH_SYS_SMD)
+				if ((*pss)->policy != &pol_smd)
+#endif
+				{
+					lwsl_info("%s: Created SS initial credit %d\n",
+						__func__, par->txcr_out);
+
+					(*pss)->info.manual_initial_tx_credit = par->txcr_out;
+				}
 			}
 
 			/* parent needs to schedule write on client conn */

@@ -276,7 +276,11 @@ typedef struct lws_ss_info {
 	int	    manual_initial_tx_credit;
 	/**< 0 = manage any tx credit automatically, nonzero explicitly sets the
 	 * peer stream to have the given amount of tx credit, if the protocol
-	 * can support it. */
+	 * can support it.
+	 *
+	 * In the special case of _lws_smd streamtype, this is used to indicate
+	 * the connection's rx class mask.
+	 * */
 	char	    register_sink;
 	/**< If set, we're not creating a specific stream, but registering
 	 * ourselves as the "sink" for .streamtype.  It's analogous to saying
